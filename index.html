@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Расходы</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Расходы">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#2563eb">
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--tx:#1b1d21;--mut:#7a808a;--ac:#2563eb;--red:#d93025;--grn:#188038;--bd:#e3e6ea;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111316;--card:#1c1f24;--tx:#eceef1;--mut:#9097a2;--ac:#5b8def;--red:#f28b82;--grn:#81c995;--bd:#2c3037}}
+:root[data-theme="dark"]{--bg:#111316;--card:#1c1f24;--tx:#eceef1;--mut:#9097a2;--ac:#5b8def;--red:#f28b82;--grn:#81c995;--bd:#2c3037}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;padding:12px;max-width:520px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:8px}.row>*{flex:1;min-width:0}
+.big{font-size:30px;font-weight:700}.lab{color:var(--mut);font-size:13px}
+input,select{width:100%;padding:11px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font-size:16px;margin-top:8px}
+button{padding:11px;border:0;border-radius:10px;background:var(--ac);color:#fff;font-size:16px;font-weight:600;margin-top:8px;width:100%}
+button.g{background:var(--bg);color:var(--tx);border:1px solid var(--bd)}
+h3{margin:0 0 4px;font-size:16px}
+.it{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--bd);gap:8px}
+.it small{color:var(--mut);display:block}
+.tabs{display:flex;gap:6px;margin:8px 0}
+.tabs button{margin:0;padding:8px;font-size:14px;background:var(--bg);color:var(--mut);border:1px solid var(--bd)}
+.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.x{background:none;color:var(--mut);width:auto;margin:0;padding:4px 8px;font-size:18px}
+.neg{color:var(--red)}.pos{color:var(--grn)}
+.bar{height:6px;background:var(--bd);border-radius:3px;margin-top:3px}.bar i{display:block;height:100%;background:var(--ac);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="row">
+ <div class="card"><div class="lab">На счету</div><div class="big" id="bal">0 ₽</div></div>
+ <div class="card"><div class="lab">Накопительный</div><div class="big pos" id="sav">0 ₽</div></div>
+</div>
+
+<div class="card">
+ <h3>Расход</h3>
+ <input id="eAmt" type="number" inputmode="decimal" placeholder="Сумма, ₽">
+ <input id="eCat" list="cats" placeholder="Категория (необязательно)">
+ <datalist id="cats"></datalist>
+ <div class="row">
+  <input id="eRnd" type="number" inputmode="decimal" placeholder="Округление, ₽">
+  <input id="eCb" type="number" inputmode="decimal" placeholder="Кэшбек, ₽">
+ </div>
+ <button onclick="addExp()">Записать расход</button>
+</div>
+
+<div class="card">
+ <h3>Деньги на счёте</h3>
+ <input id="mAmt" type="number" inputmode="decimal" placeholder="Сумма, ₽">
+ <div class="row">
+  <button onclick="setBal()">Задать остаток</button>
+  <button class="g" onclick="topUp()">Пополнить</button>
+ </div>
+</div>
+
+<div class="card">
+ <h3>Накопительный счёт</h3>
+ <input id="sAmt" type="number" inputmode="decimal" placeholder="Сумма, ₽">
+ <div class="row">
+  <button onclick="addRnd()">Округление</button>
+  <button class="g" onclick="addCb()">Кэшбек</button>
+ </div>
+ <div class="lab" style="margin-top:6px">Округление списывается со счёта, кэшбек только в накопительный</div>
+</div>
+
+<div class="card"><h3>По категориям</h3><div id="cat"></div></div>
+<div class="card"><h3>История</h3>
+ <div class="tabs" id="tabs">
+  <button data-t="all" onclick="setTab('all')">Все</button>
+  <button data-t="exp" onclick="setTab('exp')">Расходы</button>
+  <button data-t="inc" onclick="setTab('inc')">Доходы</button>
+ </div>
+ <div id="log"></div>
+ <button class="g" onclick="resetAll()">Сбросить всё</button></div>
+
+<script>
+var S={bal:0,items:[]};var tab='all';
+try{tab=localStorage.getItem('exp1tab')||'all'}catch(e){}
+try{var r=localStorage.getItem('exp1');if(r)S=JSON.parse(r)}catch(e){}
+S.items.forEach(function(i){if(i.t==='e'&&i.s){i.cb=(i.cb||0)+i.s;delete i.s}});
+function save(){try{localStorage.setItem('exp1',JSON.stringify(S))}catch(e){}}
+function $(i){return document.getElementById(i)}
+function n(i){var v=parseFloat(($(i).value||'').replace(',','.'));return isNaN(v)?0:v}
+function f(x){return (Math.round(x*100)/100).toLocaleString('ru-RU')+' ₽'}
+function add(t){t.id=Date.now()+Math.random();t.d=new Date().toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});S.items.unshift(t);save();render()}
+function addExp(){var a=n('eAmt');if(a<=0)return;
+ add({t:'e',a:a,c:$('eCat').value.trim()||'Без категории',r:Math.max(0,n('eRnd')),cb:Math.max(0,n('eCb'))});
+ ['eAmt','eCat','eRnd','eCb'].forEach(function(i){$(i).value=''})}
+function addRnd(){var a=n('sAmt');if(a<=0)return;add({t:'r',a:a});$('sAmt').value=''}
+function addCb(){var a=n('sAmt');if(a<=0)return;add({t:'s',a:a});$('sAmt').value=''}
+function topUp(){var a=n('mAmt');if(a<=0)return;add({t:'in',a:a});$('mAmt').value=''}
+function setBal(){var t=n('mAmt');var e=0,i2=0;S.items.forEach(function(i){if(i.t==='e')e+=i.a+(i.r||0);else if(i.t==='r')e+=i.a;else if(i.t==='in')i2+=i.a});
+ S.bal=t-i2+e;$('mAmt').value='';save();render()}
+function setTab(t){tab=t;try{localStorage.setItem('exp1tab',t)}catch(e){}render()}
+function del(id){S.items=S.items.filter(function(i){return i.id!==id});save();render()}
+function resetAll(){if(confirm('Удалить все данные?')){S={bal:0,items:[]};save();render()}}
+function render(){
+ var exp=0,inc=0,sav=0,rnd=0,cats={};
+ S.items.forEach(function(i){
+  if(i.t==='e'){exp+=i.a;rnd+=(i.r||0);sav+=(i.r||0)+(i.cb||0);cats[i.c]=(cats[i.c]||0)+i.a}
+  else if(i.t==='in')inc+=i.a;
+  else if(i.t==='r'){rnd+=i.a;sav+=i.a}
+  else sav+=i.a});
+ var b=S.bal+inc-exp-rnd;
+ $('bal').textContent=f(b);$('bal').className='big '+(b<0?'neg':'');
+ $('sav').textContent=f(sav);
+ var names=Object.keys(cats).sort(function(a,c){return cats[c]-cats[a]});
+ $('cat').innerHTML=names.length?names.map(function(k){var p=exp?cats[k]/exp*100:0;
+  return '<div style="margin-top:8px"><div class="it" style="border:0;padding:0"><span>'+esc(k)+'</span><b>'+f(cats[k])+'</b></div><div class="bar"><i style="width:'+p+'%"></i></div></div>'}).join(''):'<div class="lab">Пока пусто</div>';
+ $('cats').innerHTML=names.map(function(k){return '<option value="'+esc(k)+'">'}).join('');
+ Array.prototype.forEach.call($('tabs').children,function(b){b.className=b.getAttribute('data-t')===tab?'on':''});
+ var shown=S.items.filter(function(i){return tab==='all'||(tab==='exp'?(i.t==='e'||i.t==='r'):(i.t==='in'||i.t==='s'))});
+ $('log').innerHTML=shown.length?shown.map(function(i){
+  var main=i.t==='e'?'<span class="neg">−'+f(i.a)+'</span> · '+esc(i.c):i.t==='in'?'<span class="pos">+'+f(i.a)+'</span> · пополнение':i.t==='r'?'<span class="neg">−'+f(i.a)+'</span> · округление в накопительный':'<span class="pos">+'+f(i.a)+'</span> · кэшбек';
+  var sub=i.d+(i.t==='e'&&i.r?' · округление '+f(i.r):'')+(i.t==='e'&&i.cb?' · кэшбек '+f(i.cb):'');
+  return '<div class="it"><div>'+main+'<small>'+sub+'</small></div><button class="x" onclick="del('+i.id+')">×</button></div>'}).join(''):'<div class="lab">Записей нет</div>';
+}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+render();
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}
+</script>
+</body>
+</html>
